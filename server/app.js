@@ -6,7 +6,8 @@ const bodyParser = require("body-parser");
 const app = express();
 const { pool } = require("../db");
 const PORT = !process.env.PORT ? 3023 : process.env.PORT;
-
+const passport = require('passport')
+const eSession = require('express-session')
 // middleware
 app.use(express.static("public"));
 app.use(cors());
@@ -14,7 +15,12 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use("/public", express.static(`${process.cwd()}/public`));
-
+app.use(eSession({
+  secret:process.env.SECRETY,
+  resave:false,
+  saveUninitialized:true,
+  cookie:{secure:true,maxAge:86400000}
+}))
 // connect routes.js
 // routes(app,pool)
 // get homepage
