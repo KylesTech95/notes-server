@@ -3,7 +3,25 @@ let listContainer = document.querySelector(".textarea-list-container");
 let listTop = document.querySelector("#textarea-top");
 let textarea = document.querySelector("textarea");
 let api = "/notes";
-
+let c = 1;
+window.onblur = async e => {
+  console.log('blur in effect')
+  let h = 'application/json',
+  m = 'POST',
+  d = {data:'refresh'},
+  b = JSON.stringify(d)
+  await fetch('/browser-close',
+    {headers:{'Content-Type':h},method:m,body:b}).then(r=>r.json()).then(d=>console.log(d.data))
+}
+window.onfocus = async e => {
+  console.log('focus in effect')
+  let h = 'application/json',
+  m = 'POST',
+  d = {data:'return'},
+  b = JSON.stringify(d)
+  await fetch('/browser-open',
+    {headers:{'Content-Type':h},method:m,body:b}).then(r=>r.json()).then(d=>console.log(d.data))
+}
 
 const liHover = (e) => {
   let target = e.currentTarget;
