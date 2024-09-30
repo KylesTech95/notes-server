@@ -41,8 +41,6 @@ app.use(cors())
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-
-
 // get homepage
 app.route('/').get(async(req,res)=>{
   console.log(req.session.id)
@@ -106,13 +104,17 @@ app.route("/notes").post(async (req, res) => {
   }
 });
 
-let timeout
+let timeout,timeout2
 app.post('/browser-close',async (req,res) => {
+  
   req.session.ctr = 0;
   let allUsers = await pool.query('select * from users');
   let userArr = allUsers.rows;
   try{
+    let tempting
     if(req.session != null && matchUserId(userArr,req.session.id)!=undefined){
+      tempting = req.session.id;
+
       timeout = setTimeout(async()=>{
         let checkPrev = await pool.query('select previd from users where previd = $1',[req.session.id])
         console.log(checkPrev.rows[0])
@@ -121,7 +123,12 @@ app.post('/browser-close',async (req,res) => {
         // req.session.destroy(); // express session destroyed
         req.session = null; // cookie session destroyed
         console.log(req.session)
-      },30000)
+        timeout2 = setTimeout(async()=>{
+          await pool.query('delete from users where id is null;')
+          await pool.query('delete from notepad where user_id = $1',[tempting])
+          tempting = null;
+      },10000)
+      },5000)
     }
     res.json(req.body)
   }
@@ -137,8 +144,7 @@ app.post('/browser-open',(req,res)=>{
   console.log('SESSION STILL GOIGN')
   req.session.ctr = 0;
   clearTimeout(timeout)
- } else {
-  console.log('THE SESSION IS DONE!')
+  clearTimeout(timeout2)
  }
  res.json(req.body)
   }
