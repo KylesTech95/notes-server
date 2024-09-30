@@ -28,30 +28,59 @@ SET default_table_access_method = heap;
 CREATE TABLE public.notepad (
     id integer NOT NULL,
     notes text NOT NULL,
-    "timestamp" timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    user_id character varying(65)
+    user_id character varying(60) NOT NULL,
+    "timestamp" timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 
 ALTER TABLE public.notepad OWNER TO "Daddy";
 
 --
+-- Name: notepad_id_seq; Type: SEQUENCE; Schema: public; Owner: Daddy
+--
+
+CREATE SEQUENCE public.notepad_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.notepad_id_seq OWNER TO "Daddy";
+
+--
+-- Name: notepad_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: Daddy
+--
+
+ALTER SEQUENCE public.notepad_id_seq OWNED BY public.notepad.id;
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: Daddy
 --
 
 CREATE TABLE public.users (
-    id character varying(65) NOT NULL
+    id character varying(65),
+    previd character varying(65)
 );
 
 
 ALTER TABLE public.users OWNER TO "Daddy";
 
 --
+-- Name: notepad id; Type: DEFAULT; Schema: public; Owner: Daddy
+--
+
+ALTER TABLE ONLY public.notepad ALTER COLUMN id SET DEFAULT nextval('public.notepad_id_seq'::regclass);
+
+
+--
 -- Data for Name: notepad; Type: TABLE DATA; Schema: public; Owner: Daddy
 --
 
-COPY public.notepad (id, notes, "timestamp", user_id) FROM stdin;
-1	one	2024-09-29 12:31:04.755884	\N
+COPY public.notepad (id, notes, user_id, "timestamp") FROM stdin;
 \.
 
 
@@ -59,8 +88,15 @@ COPY public.notepad (id, notes, "timestamp", user_id) FROM stdin;
 -- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: Daddy
 --
 
-COPY public.users (id) FROM stdin;
+COPY public.users (id, previd) FROM stdin;
 \.
+
+
+--
+-- Name: notepad_id_seq; Type: SEQUENCE SET; Schema: public; Owner: Daddy
+--
+
+SELECT pg_catalog.setval('public.notepad_id_seq', 1, false);
 
 
 --
@@ -72,19 +108,10 @@ ALTER TABLE ONLY public.notepad
 
 
 --
--- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: Daddy
+-- Name: SCHEMA public; Type: ACL; Schema: -; Owner: pg_database_owner
 --
 
-ALTER TABLE ONLY public.users
-    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
-
-
---
--- Name: notepad notepad_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: Daddy
---
-
-ALTER TABLE ONLY public.notepad
-    ADD CONSTRAINT notepad_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+REVOKE USAGE ON SCHEMA public FROM PUBLIC;
 
 
 --

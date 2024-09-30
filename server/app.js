@@ -17,6 +17,9 @@ const { createServer } = require('node:http');
 const server = createServer(app);
 const io = new Server(server);
 const Keygrip = require('keygrip');
+const matchUserId = (array,id) => {
+  return [...array].find(x=>x.id==id)
+}
 
 // middleware
 app.use(express.static(require('path').resolve(__dirname,'../public')))
@@ -103,11 +106,13 @@ app.route("/notes").post(async (req, res) => {
   }
 });
 
-let timeout,interval
-app.post('/browser-close',(req,res)=>{
-  let ctr=0;
+let timeout
+app.post('/browser-close',async (req,res) => {
+  req.session.ctr = 0;
+  let allUsers = await pool.query('select * from users');
+  let userArr = allUsers.rows;
   try{
-    if(req.session.id != null){
+    if(req.session != null && matchUserId(userArr,req.session.id)!=undefined){
       timeout = setTimeout(async()=>{
         let checkPrev = await pool.query('select previd from users where previd = $1',[req.session.id])
         console.log(checkPrev.rows[0])
@@ -115,17 +120,10 @@ app.post('/browser-close',(req,res)=>{
         await pool.query('update users set id = null where id = $1',[req.session.id])
         // req.session.destroy(); // express session destroyed
         req.session = null; // cookie session destroyed
-      },20000)
-      interval = setInterval(()=>{
-        ctr+=1
-        console.log(ctr)
-        if(ctr >= 20){
-          clearInterval(interval)
-        }
-      },1000)
-      
-      res.json(req.body)
+        console.log(req.session)
+      },30000)
     }
+    res.json(req.body)
   }
   catch(err){
     throw new Error(err)
@@ -134,14 +132,15 @@ app.post('/browser-close',(req,res)=>{
 })
 app.post('/browser-open',(req,res)=>{
   try{
- if(req.session.id!=null){
-  ctr = 0;
+    console.log(req.session)
+ if(req.session != null){
+  console.log('SESSION STILL GOIGN')
+  req.session.ctr = 0;
   clearTimeout(timeout)
-  clearInterval(interval)
-  const {data} = req.body
-
-  res.json(req.body)
+ } else {
+  console.log('THE SESSION IS DONE!')
  }
+ res.json(req.body)
   }
   catch(err){
     throw new Error(err)
