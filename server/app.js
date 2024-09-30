@@ -127,8 +127,8 @@ app.post('/browser-close',async (req,res) => {
           await pool.query('delete from users where id is null;')
           await pool.query('delete from notepad where user_id = $1',[tempting])
           tempting = null;
-      },10000)
-      },5000)
+      },30000)
+      },30000)
     }
     res.json(req.body)
   }
