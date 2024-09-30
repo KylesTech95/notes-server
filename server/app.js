@@ -16,44 +16,60 @@ const { Server } = require("socket.io");
 const { createServer } = require('node:http');
 const server = createServer(app);
 const io = new Server(server);
-let temp
+const Keygrip = require('keygrip');
 
 // middleware
 app.use(express.static(require('path').resolve(__dirname,'../public')))
 app.set("view engine", "ejs");
 app.set('views',require('path').resolve(__dirname,'../public'))
-app.use(session({
-  secret: 'your-secret-key', // Replace with a strong secret key
-  resave: false,
-  saveUninitialized: true, // Set to false if you want to only save sessions when data is stored
-  cookie: {
-    secure: false, // Set to true if using HTTPS
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
+app.use(
+  cookieSession({
+      name:'session',
+      keys:['nfdaqh90','324ff_$tff'],
+      keys: new Keygrip(['key1', 'key2'], 'SHA384', 'base64'),
+      secure: false, // Set to true if using HTTPS
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours,
+      store: new MemoryStore({
+        checkPeriod: 1800000,
+      }),
+  })
+);
 app.use(cors())
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-io.engine.use(session);
-// connect routes.js
-// routes(app,pool)
-// get homepage
 
+
+// get homepage
 app.route('/').get(async(req,res)=>{
   console.log(req.session.id)
   // generate random id
   try{
     // check to see if id is already in db
     let checkId = await pool.query('select * from users where id = $1',[!req.session.id ? (uuidv4()) : req.session.id])
+    let checkPrev = await pool.query('select previd from users where previd = $1',[req.session.id])
+    console.log(checkPrev.rows)
+    // if false, 
     if(checkId.rowCount<1){
       console.log('fired here!')
         req.session.id = (uuidv4())
-        await pool.query('insert into users(id) values($1)',[req.session.id])
-        await pool.query('update notepad set user_id = $1 where user_id = $2',[req.session.id,temp])
-        temp = null;
+        // if previd char exists, update null userid to the new id
+        if(checkPrev.rows[0] != undefined){
+          // update new user id according to the previd
+          await pool.query('update users set id = $1 where previd = $2',[req.session.id,checkPrev.rows[0].previd])
+          // update notepad to the new user id based on the previous id
+          await pool.query('update notepad set user_id = $1 where user_id = $2',[req.session.id,checkPrev.rows[0].previd])
+        // update previd column (users table)
+        await pool.query('update users set previd = $1 where id = $1',[req.session.id])
+        }
+        else {
+        // insert new row for current user
+        await pool.query('insert into users(id,previd) values($1,$1)',[req.session.id])
+        }
+        
     }
     else {
+      // user is in the same session
       console.log('same user in session')
     }
     res.render('index.ejs')
@@ -63,6 +79,7 @@ app.route('/').get(async(req,res)=>{
     throw new Error(err)
   }
 })
+// post notes
 app.route("/notes").post(async (req, res) => {
   // identify notes
   const notes = req.body.notes;
@@ -86,14 +103,18 @@ app.route("/notes").post(async (req, res) => {
   }
 });
 
-let timeout,interval, ctr=0;
+let timeout,interval
 app.post('/browser-close',(req,res)=>{
+  let ctr=0;
   try{
     if(req.session.id != null){
       timeout = setTimeout(async()=>{
-        await pool.query('delete from users where id = $1;',[req.session.id])
-        temp = req.session.id
-        req.session.destroy();
+        let checkPrev = await pool.query('select previd from users where previd = $1',[req.session.id])
+        console.log(checkPrev.rows[0])
+        console.log(checkPrev.rows[0].previd)
+        await pool.query('update users set id = null where id = $1',[req.session.id])
+        // req.session.destroy(); // express session destroyed
+        req.session = null; // cookie session destroyed
       },20000)
       interval = setInterval(()=>{
         ctr+=1
@@ -102,9 +123,6 @@ app.post('/browser-close',(req,res)=>{
           clearInterval(interval)
         }
       },1000)
-      const {data} = req.body
-      // console.log(data)
-      // console.log(req.session.id)
       
       res.json(req.body)
     }
@@ -121,9 +139,7 @@ app.post('/browser-open',(req,res)=>{
   clearTimeout(timeout)
   clearInterval(interval)
   const {data} = req.body
-  // console.log(data)
-  // console.log(req.session.id)
-  
+
   res.json(req.body)
  }
   }
