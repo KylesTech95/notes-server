@@ -140,7 +140,7 @@ app.post('/browser-close',async (req,res) => {
 app.post('/browser-open',(req,res)=>{
   try{
     console.log(req.session)
- if(req.session != null){
+ if(req.session != null && matchUserId(userArr,req.session.id)!=undefined){
   console.log('SESSION STILL GOIGN')
   req.session.ctr = 0;
   clearTimeout(timeout)

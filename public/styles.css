@@ -50,6 +50,8 @@ textarea{
     border:none;
     box-shadow: 0 0 4px .8px #333;
     height:50px;
+    color:#000;
+    font-weight: bold;
 }
 .textarea-form{
     transition:.25s;
