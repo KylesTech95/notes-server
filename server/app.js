@@ -8,6 +8,15 @@ const PORT = !process.env.PORT ? 3023 : process.env.PORT;
 const session = require('express-session')
 const MemoryStore = require('memorystore')(session)
 const cookieSession = require('cookie-session')
+const {
+  createCipheriv,
+  createHmac,
+  createDecipheriv,
+  randomBytes,
+  createVerify,
+  createSign,
+} = require("crypto");
+const crypto = require("crypto");
 const { 
   v1: uuidv1,
   v4: uuidv4,
@@ -27,16 +36,15 @@ app.set("view engine", "ejs");
 app.set('views',require('path').resolve(__dirname,'../public'))
 app.use(
   cookieSession({
-      name:'session',
-      keys:['nfdaqh90','324ff_$tff'],
-      keys: new Keygrip(['key1', 'key2'], 'SHA384', 'base64'),
-      secure: false, // Set to true if using HTTPS
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours,
-      store: new MemoryStore({
-        checkPeriod: 1800000,
-      }),
+    name: "session",
+    maxAge: 60000,
+    secret: "dont use this secret example",
+    priority: "medium",
+    secure: false,
+    httpOnly: false,
   })
 );
+app.use(encryptUsers)
 app.use(cors())
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.urlencoded({ extended: true }));
@@ -44,41 +52,7 @@ app.use(express.json());
 // get homepage
 app.route('/').get(async(req,res)=>{
   console.log(req.session.id)
-  // generate random id
-  try{
-    // check to see if id is already in db
-    let checkId = await pool.query('select * from users where id = $1',[!req.session.id ? (uuidv4()) : req.session.id])
-    let checkPrev = await pool.query('select previd from users where previd = $1',[req.session.id])
-    console.log(checkPrev.rows)
-    // if false, 
-    if(checkId.rowCount<1){
-      console.log('fired here!')
-        req.session.id = (uuidv4())
-        // if previd char exists, update null userid to the new id
-        if(checkPrev.rows[0] != undefined){
-          // update new user id according to the previd
-          await pool.query('update users set id = $1 where previd = $2',[req.session.id,checkPrev.rows[0].previd])
-          // update notepad to the new user id based on the previous id
-          await pool.query('update notepad set user_id = $1 where user_id = $2',[req.session.id,checkPrev.rows[0].previd])
-        // update previd column (users table)
-        await pool.query('update users set previd = $1 where id = $1',[req.session.id])
-        }
-        else {
-        // insert new row for current user
-        await pool.query('insert into users(id,previd) values($1,$1)',[req.session.id])
-        }
-        
-    }
-    else {
-      // user is in the same session
-      console.log('same user in session')
-    }
-    res.render('index.ejs')
-
-  }
-  catch(err){
-    throw new Error(err)
-  }
+  res.render("index.ejs");
 })
 // post notes
 app.route("/notes").post(async (req, res) => {
@@ -196,6 +170,70 @@ app.get("/delete/:id", async (req, res) => {
   }
 });
 
+
+
+// encrypt users
+async function encryptUsers(req, res, next) {
+  // console.log('user id!')
+  // console.log(req.session.id)  
+  // generate random id
+  try{
+    // check to see if id is already in db
+    let checkId = await pool.query('select * from users where id = $1',[!req.session.id ? (uuidv4()) : req.session.id])
+    let checkPrev = await pool.query('select previd from users where previd = $1',[req.session.id])
+    // if (!paths.includes(req.path)) {
+      let newdate = new Date();
+      let id = newdate.getTime().toString();
+      // encrypt the date with a cipher
+      let key = randomBytes(32);
+      let salt = randomBytes(16);
+    console.log(checkPrev.rows)
+    // if false, 
+    if(checkId.rowCount<1){
+          console.log('fired here!')
+         if (req.session) {
+        req.session.id = createId(id, key, salt);
+      }
+        // if previd char exists, update null userid to the new id
+        if(checkPrev.rows[0] != undefined){
+          // update new user id according to the previd
+          await pool.query('update users set id = $1 where previd = $2',[req.session.id,checkPrev.rows[0].previd])
+          // update notepad to the new user id based on the previous id
+          await pool.query('update notepad set user_id = $1 where user_id = $2',[req.session.id,checkPrev.rows[0].previd])
+        // update previd column (users table)
+        await pool.query('update users set previd = $1 where id = $1',[req.session.id])
+        }
+        else {
+        // insert new row for current user
+        await pool.query('insert into users(id,previd) values($1,$1)',[req.session.id])
+        }
+        
+    }
+    else {
+      // user is in the same session
+      console.log('same user in session')
+    }
+    next();
+  }
+  
+  catch(err){
+    throw new Error(err)
+  }
+}
+// create id
+function createId(id, key, salt){
+  const cipher = createCipheriv("aes-256-gcm", key, salt);
+  const encryptId = cipher.update(id, "utf-8", "hex") + cipher.final("hex");
+  // decrypt id to check
+  // create decipher with (alg, key, iv)
+  // const decipher = createDecipheriv("aes-256-gcm", key, salt);
+  // // buffering the encrypted data as 'hex' and reading it as plain text, store into variable
+  // let decrypted = decipher.update(Buffer.from(encryptId, "hex"), "utf-8");
+  // // buffer from decipher
+  // decrypted = Buffer.from(decrypted);
+  // return encrypted id
+  return encryptId;
+}; // store user into array (fake database) after creating their id
 // app.listen(PORT, () => {
 //   console.log("You are listening on port: " + PORT);
 // });
