@@ -3,25 +3,7 @@ let listContainer = document.querySelector(".textarea-list-container");
 let listTop = document.querySelector("#textarea-top");
 let textarea = document.querySelector("textarea");
 let api = "/notes";
-let c = 1;
-window.onblur = async e => {
-  console.log('blur in effect')
-  let h = 'application/json',
-  m = 'POST',
-  d = {data:'refresh'},
-  b = JSON.stringify(d)
-  await fetch('/browser-close',
-    {headers:{'Content-Type':h},method:m,body:b}).then(r=>r.json()).then(d=>console.log(d.data))
-}
-window.onfocus = async e => {
-  console.log('focus in effect')
-  let h = 'application/json',
-  m = 'POST',
-  d = {data:'return'},
-  b = JSON.stringify(d)
-  await fetch('/browser-open',
-    {headers:{'Content-Type':h},method:m,body:b}).then(r=>r.json()).then(d=>console.log(d.data))
-}
+
 
 const liHover = (e) => {
   let target = e.currentTarget;
@@ -33,7 +15,69 @@ const liOut = (e) => {
   let bar = target.children[1];
   bar.classList.remove("bar-glow");
 };
+window.onload = e => {
+  // fetch data from `/notes` endpoint (server/routes.js)
+// We are retrieving api data from psql
+fetch(api)
+.then((r) => r.json())
+.then((data) => {
+  // console.log(data);
+  let arr = [...data.data];
+  //  console.log(arr)
+  // <i class="fa-solid fa-bars"></i>
+  arr.forEach((note, index) => {
+    const li_btn = document.createElement("button");
+    const icon = document.createElement("i");
+    li_btn.classList.add("text-area-list-container>li>button");
+    const li = document.createElement("li");
+    li.setAttribute('id','li'+(index+1))
+    li.classList.add("textarea-list-container>li");
+    li.classList.add("hide-item");
+    icon.classList.add("fa-solid");
+    icon.classList.add("fa-bars");
+    icon.classList.add("drag-elem");
+  //   li.setAttribute('draggable',true)
+    li.textContent = note.timestamp + " - " + note.id + ": " + note.notes;
+    listContainer.appendChild(li);
+    li.appendChild(li_btn);
+    li.append(icon);
+    li.addEventListener("mouseover", liHover);
+    li.addEventListener("mouseout", liOut);
+    listTop.scrollTo(0,listTop.scrollHeight);
 
+  });
+  const items = document.querySelectorAll(".textarea-list-container>li");
+  // console.log(items)
+  for (let x = 0; x < items.length; x++) {
+    if (items[x].classList.contains("hide-item")) {
+      items[x].classList.remove("hide-item");
+      items[x].classList.add("show-item");
+    }
+  }
+
+  [...listContainer.children].forEach((el, index) => {
+    let btn = el.children[0];
+    let note = textarea.value;
+    const dbId = arr[index].id;
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (listContainer.children.length <= 1) {
+        $.ajax({
+          type: "POST",
+          url: "/delete",
+        });
+      } else {
+        console.log("you deleted me");
+        $.ajax({
+          type: "GET",
+          url: `/delete/${dbId}`,
+        });
+      }
+      listContainer.removeChild(e.target.parentElement);
+    });
+  });
+});
+}
 // helper function to format textarea (security)
 const formatTextArea = (textarea) => {
   textarea.value = textarea.value.replace(
@@ -41,67 +85,6 @@ const formatTextArea = (textarea) => {
     ""
   );
 };
-// fetch data from `/notes` endpoint (server/routes.js)
-// We are retrieving api data from psql
-fetch(api)
-  .then((r) => r.json())
-  .then((data) => {
-    // console.log(data);
-    let arr = [...data.data];
-    //  console.log(arr)
-    // <i class="fa-solid fa-bars"></i>
-    arr.forEach((note, index) => {
-      const li_btn = document.createElement("button");
-      const icon = document.createElement("i");
-      li_btn.classList.add("text-area-list-container>li>button");
-      const li = document.createElement("li");
-      li.setAttribute('id','li'+(index+1))
-      li.classList.add("textarea-list-container>li");
-      li.classList.add("hide-item");
-      icon.classList.add("fa-solid");
-      icon.classList.add("fa-bars");
-      icon.classList.add("drag-elem");
-    //   li.setAttribute('draggable',true)
-      li.textContent = note.timestamp + " - " + note.id + ": " + note.notes;
-      listContainer.appendChild(li);
-      li.appendChild(li_btn);
-      li.append(icon);
-      li.addEventListener("mouseover", liHover);
-      li.addEventListener("mouseout", liOut);
-      listTop.scrollTo(0,listTop.scrollHeight);
-
-    });
-    const items = document.querySelectorAll(".textarea-list-container>li");
-    // console.log(items)
-    for (let x = 0; x < items.length; x++) {
-      if (items[x].classList.contains("hide-item")) {
-        items[x].classList.remove("hide-item");
-        items[x].classList.add("show-item");
-      }
-    }
-
-    [...listContainer.children].forEach((el, index) => {
-      let btn = el.children[0];
-      let note = textarea.value;
-      const dbId = arr[index].id;
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        if (listContainer.children.length <= 1) {
-          $.ajax({
-            type: "POST",
-            url: "/delete",
-          });
-        } else {
-          console.log("you deleted me");
-          $.ajax({
-            type: "GET",
-            url: `/delete/${dbId}`,
-          });
-        }
-        listContainer.removeChild(e.target.parentElement);
-      });
-    });
-  });
 
 const formatUTC = (date) => {
   // form object of months

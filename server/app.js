@@ -5,30 +5,11 @@ const bodyParser = require("body-parser");
 const app = express();
 const { pool } = require("../db");
 const PORT = !process.env.PORT ? 3023 : process.env.PORT;
-const session = require('express-session')
-const MemoryStore = require('memorystore')(session)
 const cookieSession = require('cookie-session')
 const {
   createCipheriv,
-  createHmac,
-  createDecipheriv,
   randomBytes,
-  createVerify,
-  createSign,
 } = require("crypto");
-const crypto = require("crypto");
-const { 
-  v1: uuidv1,
-  v4: uuidv4,
-} = require('uuid');
-const { Server } = require("socket.io");
-const { createServer } = require('node:http');
-const server = createServer(app);
-const io = new Server(server);
-const Keygrip = require('keygrip');
-const matchUserId = (array,id) => {
-  return [...array].find(x=>x.id==id)
-}
 
 // middleware
 app.use(express.static(require('path').resolve(__dirname,'../public')))
@@ -37,7 +18,7 @@ app.set('views',require('path').resolve(__dirname,'../public'))
 app.use(
   cookieSession({
     name: "session",
-    maxAge: 60000,
+    maxAge: 120000,
     secret: "dont use this secret example",
     priority: "medium",
     secure: false,
@@ -78,57 +59,6 @@ app.route("/notes").post(async (req, res) => {
   }
 });
 
-let timeout,timeout2
-app.post('/browser-close',async (req,res) => {
-  
-  req.session.ctr = 0;
-  let allUsers = await pool.query('select * from users');
-  let userArr = allUsers.rows;
-  try{
-    let tempting
-    if(req.session != null && matchUserId(userArr,req.session.id)!=undefined){
-      tempting = req.session.id;
-
-      timeout = setTimeout(async()=>{
-        let checkPrev = await pool.query('select previd from users where previd = $1',[req.session.id])
-        console.log(checkPrev.rows[0])
-        console.log(checkPrev.rows[0].previd)
-        await pool.query('update users set id = null where id = $1',[req.session.id])
-        // req.session.destroy(); // express session destroyed
-        req.session = null; // cookie session destroyed
-        console.log(req.session)
-        timeout2 = setTimeout(async()=>{
-          await pool.query('delete from users where id is null;')
-          await pool.query('delete from notepad where user_id = $1',[tempting])
-          tempting = null;
-      },30000)
-      },30000)
-    }
-    res.json(req.body)
-  }
-  catch(err){
-    throw new Error(err)
-  }
-  
-})
-app.post('/browser-open',async(req,res)=>{
-  try{
-    console.log(req.session)
-    let allUsers = await pool.query('select * from users');
-    userArr = allUsers.rows
- if(req.session != null && matchUserId(userArr,req.session.id)!=undefined){
-  console.log('SESSION STILL GOIGN')
-  req.session.ctr = 0;
-  clearTimeout(timeout)
-  clearTimeout(timeout2)
- }
- res.json(req.body)
-  }
-  catch(err){
-    throw new Error(err)
-  }
-})
-
 app.get("/notes", async (req, res) => {
   // alternate ending
   // get all fields
@@ -146,7 +76,7 @@ app.route("/delete").post(async (req, res) => {
 
   try {
     await pool.query(
-      "delete from users where id=$1",[req.session.id]
+      "delete from notepad where user_id=$1",[req.session.id]
     );
     res.redirect("/");
   } catch (err) {
@@ -174,45 +104,28 @@ app.get("/delete/:id", async (req, res) => {
 
 // encrypt users
 async function encryptUsers(req, res, next) {
-  // console.log('user id!')
-  // console.log(req.session.id)  
-  // generate random id
-  try{
-    // check to see if id is already in db
-    let checkId = await pool.query('select * from users where id = $1',[!req.session.id ? (uuidv4()) : req.session.id])
-    let checkPrev = await pool.query('select previd from users where previd = $1',[req.session.id])
-    // if (!paths.includes(req.path)) {
-      let newdate = new Date();
-      let id = newdate.getTime().toString();
+    let newdate = new Date();
+      let date = newdate.getTime().toString();
       // encrypt the date with a cipher
       let key = randomBytes(32);
-      let salt = randomBytes(16);
-    console.log(checkPrev.rows)
-    // if false, 
-    if(checkId.rowCount<1){
-          console.log('fired here!')
-         if (req.session) {
-        req.session.id = createId(id, key, salt);
-      }
-        // if previd char exists, update null userid to the new id
-        if(checkPrev.rows[0] != undefined){
-          // update new user id according to the previd
-          await pool.query('update users set id = $1 where previd = $2',[req.session.id,checkPrev.rows[0].previd])
-          // update notepad to the new user id based on the previous id
-          await pool.query('update notepad set user_id = $1 where user_id = $2',[req.session.id,checkPrev.rows[0].previd])
-        // update previd column (users table)
-        await pool.query('update users set previd = $1 where id = $1',[req.session.id])
-        }
-        else {
-        // insert new row for current user
-        await pool.query('insert into users(id,previd) values($1,$1)',[req.session.id])
-        }
-        
+      let salt = randomBytes(16);    
+  try{
+    let newId = createId(date,key,salt)
+    // check to see if id is already in db
+    let userFound = await pool.query('select * from users where id = $1',[req.session.id])
+    // collect id(s) found
+    let found = userFound.rows
+    console.log(found)
+    if(found.length < 1){
+        console.log('no users found')
+        req.session.id = newId
+        await pool.query('insert into users(id) values($1); ',[req.session.id])
     }
-    else {
-      // user is in the same session
-      console.log('same user in session')
+    else{
+      console.log('user found!')
     }
+
+    
     next();
   }
   
@@ -224,19 +137,8 @@ async function encryptUsers(req, res, next) {
 function createId(id, key, salt){
   const cipher = createCipheriv("aes-256-gcm", key, salt);
   const encryptId = cipher.update(id, "utf-8", "hex") + cipher.final("hex");
-  // decrypt id to check
-  // create decipher with (alg, key, iv)
-  // const decipher = createDecipheriv("aes-256-gcm", key, salt);
-  // // buffering the encrypted data as 'hex' and reading it as plain text, store into variable
-  // let decrypted = decipher.update(Buffer.from(encryptId, "hex"), "utf-8");
-  // // buffer from decipher
-  // decrypted = Buffer.from(decrypted);
-  // return encrypted id
   return encryptId;
-}; // store user into array (fake database) after creating their id
-// app.listen(PORT, () => {
-//   console.log("You are listening on port: " + PORT);
-// });
-server.listen(PORT, () => {
+}; 
+app.listen(PORT, () => {
   console.log("You are listening on port: " + PORT);
 });
