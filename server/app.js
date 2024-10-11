@@ -146,7 +146,7 @@ app.route("/delete").post(async (req, res) => {
 
   try {
     await pool.query(
-      "truncate notepad;"
+      "delete from users where id=$1",[req.session.id]
     );
     res.redirect("/");
   } catch (err) {
