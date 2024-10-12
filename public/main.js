@@ -37,7 +37,7 @@ fetch(api)
     icon.classList.add("fa-bars");
     icon.classList.add("drag-elem");
   //   li.setAttribute('draggable',true)
-    li.textContent = note.timestamp + " - " + note.id + ": " + note.notes;
+    li.textContent = note.timestamp + " - " + (index+1) + ": " + note.notes;
     listContainer.appendChild(li);
     li.appendChild(li_btn);
     li.append(icon);
@@ -147,7 +147,7 @@ $(".post").on("click", function (e) {
             icon.classList.add("drag-elem");
             // li2.setAttribute('draggable',true)
             li2.textContent =
-              note.timestamp + " - " + note.id + ": " + note.notes;
+              note.timestamp + " - " + (index+1) + ": " + note.notes;
             listContainer.append(li2);
             li2.appendChild(li_btn2);
             li2.appendChild(icon);
