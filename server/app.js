@@ -18,7 +18,7 @@ app.set('views',require('path').resolve(__dirname,'../public'))
 app.use(
   cookieSession({
     name: "session",
-    maxAge: 120000,
+    maxAge: 1800000,
     secret: "dont use this secret example",
     priority: "medium",
     secure: false,
@@ -26,6 +26,7 @@ app.use(
   })
 );
 app.use(encryptUsers)
+app.use(detectEndedSession)
 app.use(cors())
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.urlencoded({ extended: true }));
@@ -101,7 +102,17 @@ app.get("/delete/:id", async (req, res) => {
 });
 
 
-
+ function detectEndedSession(req,res,next){
+  // method
+  if(req.session){
+    timer = setTimeout(async()=>{
+      await pool.query('delete from users where id = $1',[req.session.id])
+      await pool.query('delete from notepad where user_id = $1',[req.session.id])
+    },1800000)
+  }
+  
+  next()
+}
 // encrypt users
 async function encryptUsers(req, res, next) {
     let newdate = new Date();

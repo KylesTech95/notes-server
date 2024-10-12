@@ -62,8 +62,7 @@ ALTER SEQUENCE public.notepad_id_seq OWNED BY public.notepad.id;
 --
 
 CREATE TABLE public.users (
-    id character varying(65),
-    previd character varying(65)
+    id character varying(65)
 );
 
 
@@ -88,7 +87,7 @@ COPY public.notepad (id, notes, user_id, "timestamp") FROM stdin;
 -- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: Daddy
 --
 
-COPY public.users (id, previd) FROM stdin;
+COPY public.users (id) FROM stdin;
 \.
 
 
