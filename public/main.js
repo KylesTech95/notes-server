@@ -57,7 +57,6 @@ fetch(api)
 
   [...listContainer.children].forEach((el, index) => {
     let btn = el.children[0];
-    let note = textarea.value;
     const dbId = arr[index].id;
     btn.addEventListener("click", (e) => {
       e.preventDefault();

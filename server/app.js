@@ -9,6 +9,7 @@ const cookieSession = require('cookie-session')
 const {
   createCipheriv,
   randomBytes,
+  createDecipheriv,
 } = require("crypto");
 
 // middleware
@@ -19,14 +20,13 @@ app.use(
   cookieSession({
     name: "session",
     maxAge: 1800000,
-    secret: "dont use this secret example",
+    secret: process.env.SECRET,
     priority: "medium",
     secure: false,
     httpOnly: false,
   })
 );
 app.use(encryptUsers)
-app.use(detectEndedSession)
 app.use(cors())
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.urlencoded({ extended: true }));
@@ -43,13 +43,14 @@ app.route("/notes").post(async (req, res) => {
   // insert new note into db
   try {
     if (notes) {
-      await pool.query("insert into notepad(notes,user_id) values($1,$2)", [notes,req.session.id]);
+      await pool.query("insert into notepad(notes,user_id) values($1,$2)", [(notes),req.session.id]);
       const getFields = await pool.query("select * from notepad where user_id = $1",[req.session.id]);
       const rows = getFields.rows;
       // send notes via json
       res.json({
         data: rows.map((row) => {
-          return { id: row.id, notes: row.notes, timestamp: row.timestamp };
+          const decnotes = (row.notes)
+          return { id: row.id, notes: decnotes, timestamp: row.timestamp };
         }),
       });
     } else {
@@ -68,7 +69,8 @@ app.get("/notes", async (req, res) => {
   // send notes via json
   res.json({
     data: rows.map((row) => {
-      return { id: row.id, notes: row.notes, timestamp: row.timestamp };
+      const decnotes = (row.notes)
+      return { id: row.id, notes: decnotes, timestamp: row.timestamp };
     }),
   });
 });
@@ -101,18 +103,6 @@ app.get("/delete/:id", async (req, res) => {
   }
 });
 
-
- function detectEndedSession(req,res,next){
-  // method
-  if(req.session){
-    timer = setTimeout(async()=>{
-      await pool.query('delete from users where id = $1',[req.session.id])
-      await pool.query('delete from notepad where user_id = $1',[req.session.id])
-    },1800000)
-  }
-  
-  next()
-}
 // encrypt users
 async function encryptUsers(req, res, next) {
     let newdate = new Date();
@@ -120,7 +110,7 @@ async function encryptUsers(req, res, next) {
       // encrypt the date with a cipher
       let key = randomBytes(32);
       let salt = randomBytes(16);    
-  try{
+  try{  
     let newId = createId(date,key,salt)
     // check to see if id is already in db
     let userFound = await pool.query('select * from users where id = $1',[req.session.id])
@@ -150,6 +140,32 @@ function createId(id, key, salt){
   const encryptId = cipher.update(id, "utf-8", "hex") + cipher.final("hex");
   return encryptId;
 }; 
+// encrypt notes
+let t;
+function encrypt(notes){
+  // start symmetric encryption
+  const alg = 'aes-256-gcm'
+  const key = Buffer.alloc(32,process.env.noteKey);
+  console.log(key)
+  const iv = randomBytes(16)
+  t=iv
+  console.log(iv)
+  const cipher = createCipheriv(alg,key,iv);
+  const encryptedNote = cipher.update(notes, "utf-8", "hex") + cipher.final("hex");
+  return encryptedNote
+}
+function decrypt(notes){
+  // start symmetric encryption
+  const alg = 'aes-256-gcm'
+  const key = Buffer.alloc(32,process.env.noteKey);
+  console.log(key)
+  console.log(t)
+  const decipher = createDecipheriv(alg,key,t);
+  const decryptedNote = Buffer.from(
+    decipher.update(Buffer.from(notes, "hex"), "utf-8"))  
+    return decryptedNote.toString()
+}
+
 app.listen(PORT, () => {
   console.log("You are listening on port: " + PORT);
 });

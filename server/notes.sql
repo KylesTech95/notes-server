@@ -2,13 +2,12 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 17rc1
--- Dumped by pg_dump version 17rc1
+-- Dumped from database version 13.16 (Debian 13.16-0+deb11u1)
+-- Dumped by pg_dump version 13.16 (Debian 13.16-0+deb11u1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
-SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -16,6 +15,22 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
+
+--
+-- Name: expired_user(); Type: FUNCTION; Schema: public; Owner: Daddy
+--
+
+CREATE FUNCTION public.expired_user() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+begin
+delete from users where timestamp < current_timestamp - interval '1 minute';
+return null;
+end;
+$$;
+
+
+ALTER FUNCTION public.expired_user() OWNER TO "Daddy";
 
 SET default_tablespace = '';
 
@@ -48,7 +63,7 @@ CREATE SEQUENCE public.notepad_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.notepad_id_seq OWNER TO "Daddy";
+ALTER TABLE public.notepad_id_seq OWNER TO "Daddy";
 
 --
 -- Name: notepad_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: Daddy
@@ -62,7 +77,8 @@ ALTER SEQUENCE public.notepad_id_seq OWNED BY public.notepad.id;
 --
 
 CREATE TABLE public.users (
-    id character varying(65)
+    id character varying(65),
+    "timestamp" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -87,7 +103,8 @@ COPY public.notepad (id, notes, user_id, "timestamp") FROM stdin;
 -- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: Daddy
 --
 
-COPY public.users (id) FROM stdin;
+COPY public.users (id, "timestamp") FROM stdin;
+1002	2024-10-13 14:47:45.6982
 \.
 
 
@@ -107,10 +124,18 @@ ALTER TABLE ONLY public.notepad
 
 
 --
--- Name: SCHEMA public; Type: ACL; Schema: -; Owner: pg_database_owner
+-- Name: users expired_user; Type: TRIGGER; Schema: public; Owner: Daddy
 --
 
-REVOKE USAGE ON SCHEMA public FROM PUBLIC;
+CREATE TRIGGER expired_user BEFORE INSERT ON public.users FOR EACH STATEMENT EXECUTE FUNCTION public.expired_user();
+
+
+--
+-- Name: SCHEMA public; Type: ACL; Schema: -; Owner: postgres
+--
+
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT CREATE ON SCHEMA public TO PUBLIC;
 
 
 --
