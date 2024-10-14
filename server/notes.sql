@@ -24,7 +24,7 @@ CREATE FUNCTION public.expired_user() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 begin
-delete from users where timestamp < current_timestamp - interval '1 minute';
+delete from users where timestamp < current_timestamp - interval '30 minutes';
 return null;
 end;
 $$;

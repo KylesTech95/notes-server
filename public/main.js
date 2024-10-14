@@ -4,7 +4,6 @@ let listTop = document.querySelector("#textarea-top");
 let textarea = document.querySelector("textarea");
 let api = "/notes";
 
-
 const liHover = (e) => {
   let target = e.currentTarget;
   let bar = target.children[1];
