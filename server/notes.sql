@@ -2,12 +2,13 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 13.16 (Debian 13.16-0+deb11u1)
--- Dumped by pg_dump version 13.16 (Debian 13.16-0+deb11u1)
+-- Dumped from database version 17rc1
+-- Dumped by pg_dump version 17rc1
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -15,6 +16,22 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
+
+--
+-- Name: expired_note(); Type: FUNCTION; Schema: public; Owner: Daddy
+--
+
+CREATE FUNCTION public.expired_note() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+begin
+delete from notepad where timestamp < current_timestamp - interval '30 minutes';
+return null;
+end;
+$$;
+
+
+ALTER FUNCTION public.expired_note() OWNER TO "Daddy";
 
 --
 -- Name: expired_user(); Type: FUNCTION; Schema: public; Owner: Daddy
@@ -63,7 +80,7 @@ CREATE SEQUENCE public.notepad_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.notepad_id_seq OWNER TO "Daddy";
+ALTER SEQUENCE public.notepad_id_seq OWNER TO "Daddy";
 
 --
 -- Name: notepad_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: Daddy
@@ -96,6 +113,7 @@ ALTER TABLE ONLY public.notepad ALTER COLUMN id SET DEFAULT nextval('public.note
 --
 
 COPY public.notepad (id, notes, user_id, "timestamp") FROM stdin;
+7	{"something":55,"monkey":233}	94	2024-10-14 18:44:23.437017
 \.
 
 
@@ -104,6 +122,8 @@ COPY public.notepad (id, notes, user_id, "timestamp") FROM stdin;
 --
 
 COPY public.users (id, "timestamp") FROM stdin;
+41de9865acb407ce7df56fa4086f7263fa13d24b	2024-10-14 18:18:40.909203
+893247983247	2024-10-14 18:40:17.457167
 \.
 
 
@@ -111,7 +131,7 @@ COPY public.users (id, "timestamp") FROM stdin;
 -- Name: notepad_id_seq; Type: SEQUENCE SET; Schema: public; Owner: Daddy
 --
 
-SELECT pg_catalog.setval('public.notepad_id_seq', 1, false);
+SELECT pg_catalog.setval('public.notepad_id_seq', 7, true);
 
 
 --
@@ -123,6 +143,13 @@ ALTER TABLE ONLY public.notepad
 
 
 --
+-- Name: notepad expired_note; Type: TRIGGER; Schema: public; Owner: Daddy
+--
+
+CREATE TRIGGER expired_note AFTER INSERT ON public.notepad FOR EACH STATEMENT EXECUTE FUNCTION public.expired_note();
+
+
+--
 -- Name: users expired_user; Type: TRIGGER; Schema: public; Owner: Daddy
 --
 
@@ -130,10 +157,10 @@ CREATE TRIGGER expired_user BEFORE INSERT ON public.users FOR EACH STATEMENT EXE
 
 
 --
--- Name: SCHEMA public; Type: ACL; Schema: -; Owner: postgres
+-- Name: SCHEMA public; Type: ACL; Schema: -; Owner: pg_database_owner
 --
 
-REVOKE ALL ON SCHEMA public FROM PUBLIC;
+REVOKE USAGE ON SCHEMA public FROM PUBLIC;
 GRANT CREATE ON SCHEMA public TO PUBLIC;
 
 

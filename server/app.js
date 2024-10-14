@@ -10,6 +10,7 @@ const {
   createCipheriv,
   randomBytes,
   createDecipheriv,
+  createHash,
 } = require("crypto");
 
 // middleware
@@ -104,7 +105,7 @@ app.get("/delete/:id", async (req, res) => {
       red.redirect("/");
     } else {
       await pool.query("delete from notepad where id=$1", [id]);
-      console.log("you deleted an item");
+      // console.log("you deleted an item");
       res.redirect("/");
     }
   } catch (err) {
@@ -125,14 +126,14 @@ async function encryptUsers(req, res, next) {
     let userFound = await pool.query('select * from users where id = $1',[req.session.id])
     // collect id(s) found
     let found = userFound.rows
-    console.log(found)
+    // console.log(found)
     if(found.length < 1){
-        console.log('no users found')
+        // console.log('no users found')
         req.session.id = newId
         await pool.query('insert into users(id) values($1); ',[req.session.id])
     }
     else{
-      console.log('user found!')
+      // console.log('user found!')
     }
 
     
@@ -144,38 +145,42 @@ async function encryptUsers(req, res, next) {
   }
 }
 // create id
-function createId(id, key, salt){
-  const cipher = createCipheriv("aes-256-gcm", key, salt);
-  const encryptId = cipher.update(id, "utf-8", "hex") + cipher.final("hex");
-  return encryptId;
+function createId(id){
+  // const cipher = createCipheriv("aes-256-gcm", key, salt);
+  // const encryptId = cipher.update(id, "utf-8", "hex") + cipher.final("hex");
+  // return encryptId;
+  const hash = createHash('sha1').update(id).digest('hex')
+  // console.log('hash')
+
+  return hash
 }; 
 // encrypt notes
 function encrypt(notes){
-  console.log('encrypt')
+  // console.log('encrypt')
   // start symmetric encryption
   const alg = 'aes-256-gcm'
-  const key = Buffer.alloc(32,process.env.noteKey);
-  console.log(key)
+  const key = Buffer.alloc(32,process.env.KEY);
+  // console.log(key)
   const iv = randomBytes(16)
-  console.log('iv original')
-  console.log(iv)
-  console.log('iv hex')
-  console.log(iv.toString('hex'))
+  // console.log('iv original')
+  // console.log(iv)
+  // console.log('iv hex')
+  // console.log(iv.toString('hex'))
   const cipher = createCipheriv(alg,key,iv);
   const encryptedNote = cipher.update(notes, "utf-8", "hex") + cipher.final("hex");
   return JSON.stringify({note:encryptedNote,iv:iv.toString('hex')})
 }
 function decrypt(encrypted,iv,alg){
-  console.log('decrypt')
+  // console.log('decrypt')
   // start symmetric encryption
-  const key = Buffer.alloc(32,process.env.noteKey);
-  console.log('key')
-  console.log(key)
-  console.log('almost iv')
-  console.log(iv)
+  const key = Buffer.alloc(32,process.env.KEY);
+  // console.log('key')
+  // console.log(key)
+  // console.log('almost iv')
+  // console.log(iv)
   iv = Buffer.from(iv,'hex')
-  console.log('iv')
-  console.log(iv)
+  // console.log('iv')
+  // console.log(iv)
   const decipher = createDecipheriv(alg,key,iv);
   const decryptedNote = Buffer.from(
     decipher.update(Buffer.from(encrypted, "hex"), "utf-8"))  
