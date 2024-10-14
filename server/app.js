@@ -43,14 +43,19 @@ app.route("/notes").post(async (req, res) => {
   // insert new note into db
   try {
     if (notes) {
-      await pool.query("insert into notepad(notes,user_id) values($1,$2)", [(notes),req.session.id]);
+      // encrypt notes
+      const encnotesObj = encrypt(notes)
+      await pool.query("insert into notepad(notes,user_id) values($1,$2)", [encnotesObj,req.session.id]);
       const getFields = await pool.query("select * from notepad where user_id = $1",[req.session.id]);
       const rows = getFields.rows;
       // send notes via json
       res.json({
         data: rows.map((row) => {
-          const decnotes = (row.notes)
-          return { id: row.id, notes: decnotes, timestamp: row.timestamp };
+          const decnotes = (row['notes'])
+          const encrypted = decnotes['note'];
+          const iv = decnotes['iv']
+          const decrypted = decrypt(encrypted,iv,'aes-256-gcm')
+          return { id: row.id, notes: decrypted, timestamp: row.timestamp };
         }),
       });
     } else {
@@ -69,8 +74,12 @@ app.get("/notes", async (req, res) => {
   // send notes via json
   res.json({
     data: rows.map((row) => {
-      const decnotes = (row.notes)
-      return { id: row.id, notes: decnotes, timestamp: row.timestamp };
+
+      const decnotes = (row['notes'])
+      const encrypted = decnotes['note'];
+      const iv = decnotes['iv']
+      const decrypted = decrypt(encrypted,iv,'aes-256-gcm')
+      return { id: row.id, notes: decrypted, timestamp: row.timestamp };
     }),
   });
 });
@@ -141,28 +150,35 @@ function createId(id, key, salt){
   return encryptId;
 }; 
 // encrypt notes
-let t;
 function encrypt(notes){
+  console.log('encrypt')
   // start symmetric encryption
   const alg = 'aes-256-gcm'
   const key = Buffer.alloc(32,process.env.noteKey);
   console.log(key)
   const iv = randomBytes(16)
-  t=iv
+  console.log('iv original')
   console.log(iv)
+  console.log('iv hex')
+  console.log(iv.toString('hex'))
   const cipher = createCipheriv(alg,key,iv);
   const encryptedNote = cipher.update(notes, "utf-8", "hex") + cipher.final("hex");
-  return encryptedNote
+  return JSON.stringify({note:encryptedNote,iv:iv.toString('hex')})
 }
-function decrypt(notes){
+function decrypt(encrypted,iv,alg){
+  console.log('decrypt')
   // start symmetric encryption
-  const alg = 'aes-256-gcm'
   const key = Buffer.alloc(32,process.env.noteKey);
+  console.log('key')
   console.log(key)
-  console.log(t)
-  const decipher = createDecipheriv(alg,key,t);
+  console.log('almost iv')
+  console.log(iv)
+  iv = Buffer.from(iv,'hex')
+  console.log('iv')
+  console.log(iv)
+  const decipher = createDecipheriv(alg,key,iv);
   const decryptedNote = Buffer.from(
-    decipher.update(Buffer.from(notes, "hex"), "utf-8"))  
+    decipher.update(Buffer.from(encrypted, "hex"), "utf-8"))  
     return decryptedNote.toString()
 }
 

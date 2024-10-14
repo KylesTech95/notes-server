@@ -42,7 +42,7 @@ SET default_table_access_method = heap;
 
 CREATE TABLE public.notepad (
     id integer NOT NULL,
-    notes text NOT NULL,
+    notes json NOT NULL,
     user_id character varying(60) NOT NULL,
     "timestamp" timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
@@ -104,7 +104,6 @@ COPY public.notepad (id, notes, user_id, "timestamp") FROM stdin;
 --
 
 COPY public.users (id, "timestamp") FROM stdin;
-1002	2024-10-13 14:47:45.6982
 \.
 
 
