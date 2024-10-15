@@ -3,6 +3,10 @@ let listContainer = document.querySelector(".textarea-list-container");
 let listTop = document.querySelector("#textarea-top");
 let textarea = document.querySelector("textarea");
 let api = "/notes";
+const clearbtn = document.getElementById('clear')
+clearbtn.onclick = e => {
+textarea.focus();
+}
 
 const liHover = (e) => {
   let target = e.currentTarget;
@@ -201,8 +205,10 @@ $(".delete").on("click", function (e) {
     url: "/delete",
   });
   textarea.value = "";
+  textarea.focus();
   // remove children
   return [...listContainer.children].forEach((c) =>
     listContainer.removeChild(c)
   );
 });
+

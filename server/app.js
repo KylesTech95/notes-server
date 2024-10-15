@@ -187,6 +187,21 @@ function decrypt(encrypted,iv,alg){
     return decryptedNote.toString()
 }
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log("You are listening on port: " + PORT);
 });
+
+// truncate tables & sequence in db when serveris closed
+server.on('close',async ()=>{
+  console.log('server closed')
+})
+// graceful shutdown
+process.on('SIGINT',()=>{
+  server.close(async()=>{
+    const query = 'truncate users,notepad cascade;alter sequence notepad_id_seq restart with 1;'
+    await pool.query(query)
+    process.exit(0)
+  })
+})
+
+
